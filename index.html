@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selling Piece Activation</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <!-- Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        :root {
+            --bg-color: #f9fafb;
+            --surface: #ffffff;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.5;
+            padding: 12px;
+            min-height: 100vh;
+        }
+
+        @media (min-width: 600px) {
+            body {
+                padding: 24px;
+            }
+        }
+
+        .layout-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 24px;
+        }
+
+        .header-title {
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .icon-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.25rem;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .icon-btn span {
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .icon-btn:hover {
+            background-color: #f3f4f6;
+            color: var(--text-primary);
+        }
+
+        .desktop-only {
+            display: none;
+        }
+
+        @media (min-width: 600px) {
+            .desktop-only {
+                display: inline;
+            }
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        .panel {
+            background-color: var(--surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        @media (min-width: 600px) {
+            .panel {
+                padding: 24px;
+            }
+        }
+
+        .panel-header {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            background-color: var(--surface);
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .input-with-action {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-with-action input {
+            flex: 1;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: #f3f4f6;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #e5e7eb;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .relative-box {
+            position: relative;
+        }
+
+        .paste-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .paste-btn:hover {
+            color: var(--text-primary);
+            background-color: #f3f4f6;
+        }
+
+        /* Scanner */
+        #reader {
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            display: none;
+            border: 1px solid var(--border-color);
+            margin-bottom: 16px;
+            background: #000;
+        }
+
+        /* Iframe */
+        .iframe-container {
+            width: 100%;
+            height: 75vh;
+            min-height: 700px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: var(--bg-color);
+        }
+
+        .iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+
+        .modal {
+            background-color: var(--surface);
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            padding: 24px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.25rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .close-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .loader {
+            display: inline-block;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid #fff;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="layout-container">
+        <header>
+            <div class="header-title">
+                <h1>Selling Piece Activation</h1>
+                <span class="subtitle">Link your physical asset to its digital destination</span>
+            </div>
+            <button class="icon-btn" onclick="openModal()" title="Settings">
+                <i class="ri-settings-4-line"></i>
+                <span class="desktop-only">Settings</span>
+            </button>
+        </header>
+
+        <div class="grid-layout">
+            <!-- Assignment Column -->
+            <div class="panel">
+                <div class="panel-header">
+                    <i class="ri-qr-scan-2-line"></i> Activation Details
+                </div>
+
+                <div id="reader"></div>
+
+                <div class="form-group">
+                    <label for="uuidInput">Asset ID (UUID)</label>
+                    <div class="input-with-action">
+                        <input type="text" id="uuidInput" placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000">
+                        <button class="btn btn-secondary" onclick="startScanner()" id="scanBtn" type="button">
+                            <i class="ri-camera-line"></i> Scan
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="valueInput">Destination Link (Maps Review)</label>
+                    <div class="relative-box">
+                        <textarea id="valueInput" rows="4" placeholder="Paste the extracted Maps review link here"></textarea>
+                        <button class="paste-btn" onclick="pasteValue()" type="button" title="Paste from Clipboard">
+                            <i class="ri-clipboard-line"></i> Paste
+                        </button>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" id="assignBtn" onclick="assignToKV()" type="button">
+                    <i class="ri-check-line"></i> Activate Asset
+                </button>
+            </div>
+
+            <!-- Maps Extractor Column -->
+            <div class="panel">
+                <div class="panel-header">
+                    <i class="ri-map-pin-line"></i> Maps Review Extractor
+                </div>
+                <div class="iframe-container">
+                    <iframe src="https://productmate.com/google-review-link-generator" title="Maps Review Extractor" allow="clipboard-read; clipboard-write"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Admin Worker Config</h2>
+                <button class="close-btn" onclick="closeModal()"><i class="ri-close-line"></i></button>
+            </div>
+            
+            <form id="adminConfigForm" onsubmit="saveWorkerConfig(event)">
+                <input type="text" name="username" value="admin" style="display:none;" autocomplete="username">
+                
+                <div class="form-group">
+                    <label for="workerUrl">Admin Worker URL</label>
+                    <input type="url" id="workerUrl" name="url" autocomplete="url" placeholder="https://admin-worker.yourdomain.workers.dev" required>
+                </div>
+                <div class="form-group">
+                    <label for="adminPassword">Admin Password</label>
+                    <input type="password" id="adminPassword" name="password" autocomplete="current-password" placeholder="Worker secret password" required>
+                </div>
+                <button type="submit" class="btn btn-primary" id="saveConfigBtn">
+                    Save Configuration
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const workerUrl = localStorage.getItem('workerUrl');
+            const adminPassword = localStorage.getItem('adminPassword');
+
+            if (workerUrl) document.getElementById('workerUrl').value = workerUrl;
+            if (adminPassword) document.getElementById('adminPassword').value = adminPassword;
+        });
+
+        // Modal Functions
+        const modal = document.getElementById('settingsModal');
+        function openModal() {
+            modal.style.display = 'flex';
+        }
+        function closeModal() {
+            modal.style.display = 'none';
+        }
+        
+        // Close modal when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        function saveWorkerConfig(event) {
+            event.preventDefault();
+            
+            let url = document.getElementById('workerUrl').value.trim();
+            if (url.endsWith('/')) url = url.slice(0, -1);
+
+            localStorage.setItem('workerUrl', url);
+            localStorage.setItem('adminPassword', document.getElementById('adminPassword').value);
+
+            const btn = document.getElementById('saveConfigBtn');
+            const origText = btn.innerHTML;
+            btn.innerHTML = 'Saved!';
+            btn.style.backgroundColor = 'var(--success)';
+            
+            setTimeout(() => {
+                btn.innerHTML = origText;
+                btn.style.backgroundColor = '';
+                closeModal();
+            }, 1000);
+        }
+
+        let html5QrcodeScanner = null;
+
+        function extractUUID(text) {
+            const uuidRegex = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
+            const match = text.match(uuidRegex);
+            return match ? match[0] : null;
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            const uuid = extractUUID(decodedText) || decodedText;
+            document.getElementById('uuidInput').value = uuid;
+            stopScanner();
+        }
+
+        function onScanFailure(error) {
+            // handle scan failure, ignored for continuous scanning
+        }
+
+        function startScanner() {
+            const readerElement = document.getElementById('reader');
+            const scanBtn = document.getElementById('scanBtn');
+
+            if (html5QrcodeScanner) {
+                stopScanner();
+                return;
+            }
+
+            readerElement.style.display = 'block';
+            scanBtn.innerHTML = '<i class="ri-close-line"></i> Stop';
+
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            html5QrcodeScanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                onScanSuccess,
+                onScanFailure
+            ).catch(err => {
+                alert("Error accessing camera: " + err);
+                stopScanner();
+            });
+        }
+
+        function stopScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    html5QrcodeScanner.clear();
+                    html5QrcodeScanner = null;
+                    document.getElementById('reader').style.display = 'none';
+                    document.getElementById('scanBtn').innerHTML = '<i class="ri-camera-line"></i> Scan';
+                });
+            }
+        }
+
+        async function assignToKV() {
+            const workerUrl = localStorage.getItem('workerUrl');
+            const adminPassword = localStorage.getItem('adminPassword');
+
+            const uuid = document.getElementById('uuidInput').value.trim();
+            const value = document.getElementById('valueInput').value.trim();
+
+            if (!workerUrl || !adminPassword) {
+                alert('Please configure Admin Worker settings first.');
+                openModal();
+                return;
+            }
+
+            if (!uuid) {
+                alert('Please enter or scan a Target UUID.');
+                return;
+            }
+
+            const btn = document.getElementById('assignBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<div class="loader"></div> <span style="margin-left:8px;">Saving...</span>';
+            btn.disabled = true;
+
+            try {
+                const targetUrl = `${workerUrl}/assign`;
+
+                const response = await fetch(targetUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminPassword}`
+                    },
+                    body: JSON.stringify({ uuid, value })
+                });
+
+                const resultText = await response.text();
+                let resultJson = null;
+                try { resultJson = JSON.parse(resultText); } catch (e) { }
+
+                if (response.ok && (!resultJson || resultJson.success !== false)) {
+                    btn.innerHTML = '<i class="ri-check-line"></i> Success!';
+                    btn.style.backgroundColor = 'var(--success)';
+                    document.getElementById('uuidInput').value = '';
+                    document.getElementById('valueInput').value = '';
+                    
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                        btn.style.backgroundColor = '';
+                    }, 3000);
+                } else {
+                    console.error("Cloudflare error", resultJson || resultText);
+                    alert('Failed to assign to Cloudflare KV: ' + (resultJson?.errors?.[0]?.message || 'Unknown error'));
+                    btn.innerHTML = originalText;
+                }
+            } catch (error) {
+                console.error("Error writing to Cloudflare KV", error);
+                alert("Failed to write to Cloudflare KV. Check console for details.");
+                btn.innerHTML = originalText;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function pasteValue() {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById('valueInput').value = text;
+            } catch (err) {
+                console.error('Failed to read clipboard contents: ', err);
+                alert('Could not paste. Please ensure clipboard permissions are granted.');
+            }
+        }
+    </script>
+</body>
+</html>
