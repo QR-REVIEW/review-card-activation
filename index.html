@@ -21,6 +21,7 @@
             --primary-hover: #1d4ed8;
             --danger: #ef4444;
             --success: #10b981;
+            --warning: #f59e0b;
         }
 
         * {
@@ -148,7 +149,8 @@
         }
 
         .form-group input,
-        .form-group textarea {
+        .form-group textarea,
+        .form-group select {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border-color);
@@ -160,7 +162,8 @@
         }
 
         .form-group input:focus,
-        .form-group textarea:focus {
+        .form-group textarea:focus,
+        .form-group select:focus {
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -169,10 +172,12 @@
         .input-with-action {
             display: flex;
             gap: 8px;
+            flex-wrap: wrap;
         }
 
         .input-with-action input {
             flex: 1;
+            min-width: 150px;
         }
 
         .btn {
@@ -207,6 +212,11 @@
 
         .btn-secondary:hover {
             background-color: #e5e7eb;
+        }
+
+        .btn-warning {
+            background-color: var(--warning);
+            color: white;
         }
 
         .btn:disabled {
@@ -248,6 +258,11 @@
             border: 1px solid var(--border-color);
             margin-bottom: 16px;
             background: #000;
+        }
+
+        #cameraSelectContainer {
+            display: none;
+            margin-bottom: 16px;
         }
 
         /* Iframe */
@@ -323,6 +338,11 @@
             height: 16px;
             animation: spin 1s linear infinite;
         }
+        
+        .loader-dark {
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-top: 2px solid var(--text-primary);
+        }
 
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -352,13 +372,22 @@
                     <i class="ri-qr-scan-2-line"></i> Activation Details
                 </div>
 
+                <div id="cameraSelectContainer" class="form-group">
+                    <label for="cameraSelect">Select Camera</label>
+                    <select id="cameraSelect" onchange="changeCamera()">
+                        <option value="">Loading cameras...</option>
+                    </select>
+                </div>
                 <div id="reader"></div>
 
                 <div class="form-group">
                     <label for="uuidInput">Asset ID (UUID)</label>
                     <div class="input-with-action">
                         <input type="text" id="uuidInput" placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000">
-                        <button class="btn btn-secondary" onclick="startScanner()" id="scanBtn" type="button">
+                        <button class="btn btn-secondary" onclick="readNFC()" id="nfcBtn" type="button" title="Read NFC Tag">
+                            <i class="ri-rfid-line"></i> NFC
+                        </button>
+                        <button class="btn btn-secondary" onclick="toggleScanner()" id="scanBtn" type="button" title="Scan QR Code">
                             <i class="ri-camera-line"></i> Scan
                         </button>
                     </div>
@@ -435,7 +464,6 @@
             modal.style.display = 'none';
         }
         
-        // Close modal when clicking outside
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeModal();
         });
@@ -461,7 +489,66 @@
             }, 1000);
         }
 
+        // ---------- NFC Scanner Logic ----------
+
+        async function readNFC() {
+            const nfcBtn = document.getElementById('nfcBtn');
+            const originalText = '<i class="ri-rfid-line"></i> NFC';
+
+            if ('NDEFReader' in window) {
+                try {
+                    nfcBtn.innerHTML = '<div class="loader loader-dark"></div> Wait...';
+                    nfcBtn.disabled = true;
+
+                    const ndef = new NDEFReader();
+                    await ndef.scan();
+                    
+                    // Setup UI to indicate it's scanning
+                    nfcBtn.innerHTML = '<i class="ri-rss-line"></i> Tap Tag';
+                    nfcBtn.classList.remove('btn-secondary');
+                    nfcBtn.classList.add('btn-warning');
+                    nfcBtn.disabled = false;
+
+                    ndef.addEventListener("readingerror", () => {
+                        alert("Cannot read data from the NFC tag. Try another one?");
+                        resetNfcBtn(nfcBtn, originalText);
+                    });
+
+                    ndef.addEventListener("reading", ({ message, serialNumber }) => {
+                        let text = "";
+                        for (const record of message.records) {
+                            if (record.recordType === "text" || record.recordType === "url") {
+                                const textDecoder = new TextDecoder(record.encoding || "utf-8");
+                                text += textDecoder.decode(record.data);
+                            }
+                        }
+                        
+                        const uuid = extractUUID(text) || text;
+                        document.getElementById('uuidInput').value = uuid;
+                        resetNfcBtn(nfcBtn, originalText);
+                    });
+                } catch (error) {
+                    console.error(error);
+                    alert("Error starting NFC: " + error.message);
+                    resetNfcBtn(nfcBtn, originalText);
+                }
+            } else {
+                alert("Web NFC is not supported on this browser/device. Please use Chrome on Android and ensure you are on HTTPS.");
+                resetNfcBtn(nfcBtn, originalText);
+            }
+        }
+
+        function resetNfcBtn(btn, text) {
+            btn.innerHTML = text;
+            btn.classList.add('btn-secondary');
+            btn.classList.remove('btn-warning');
+            btn.disabled = false;
+        }
+
+        // ---------- QR Scanner Logic ----------
+
         let html5QrcodeScanner = null;
+        let currentCameraId = null;
 
         function extractUUID(text) {
             const uuidRegex = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
@@ -476,29 +563,76 @@
         }
 
         function onScanFailure(error) {
-            // handle scan failure, ignored for continuous scanning
+            // Ignored for continuous scanning
         }
 
-        function startScanner() {
-            const readerElement = document.getElementById('reader');
-            const scanBtn = document.getElementById('scanBtn');
-
+        function toggleScanner() {
             if (html5QrcodeScanner) {
                 stopScanner();
-                return;
+            } else {
+                initScanner();
             }
+        }
+
+        function initScanner() {
+            const cameraSelectContainer = document.getElementById('cameraSelectContainer');
+            const cameraSelect = document.getElementById('cameraSelect');
+
+            // Request Camera Permissions & get list of cameras
+            Html5Qrcode.getCameras().then(devices => {
+                if (devices && devices.length) {
+                    cameraSelectContainer.style.display = 'block';
+                    cameraSelect.innerHTML = '';
+                    
+                    devices.forEach(device => {
+                        const option = document.createElement('option');
+                        option.value = device.id;
+                        option.text = device.label || `Camera ${cameraSelect.length + 1}`;
+                        cameraSelect.appendChild(option);
+                    });
+
+                    // Start with back camera if available, otherwise first
+                    if (!currentCameraId) {
+                        currentCameraId = devices[0].id;
+                    }
+                    cameraSelect.value = currentCameraId;
+                    
+                    startScannerWithCamera(currentCameraId);
+                } else {
+                    alert("No cameras found on your device.");
+                }
+            }).catch(err => {
+                alert("Error accessing cameras (check permissions): " + err);
+            });
+        }
+
+        function changeCamera() {
+            const cameraSelect = document.getElementById('cameraSelect');
+            currentCameraId = cameraSelect.value;
+            
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    html5QrcodeScanner.clear();
+                    startScannerWithCamera(currentCameraId);
+                });
+            }
+        }
+
+        function startScannerWithCamera(cameraId) {
+            const readerElement = document.getElementById('reader');
+            const scanBtn = document.getElementById('scanBtn');
 
             readerElement.style.display = 'block';
             scanBtn.innerHTML = '<i class="ri-close-line"></i> Stop';
 
             html5QrcodeScanner = new Html5Qrcode("reader");
             html5QrcodeScanner.start(
-                { facingMode: "environment" },
+                cameraId,
                 { fps: 10, qrbox: { width: 250, height: 250 } },
                 onScanSuccess,
                 onScanFailure
             ).catch(err => {
-                alert("Error accessing camera: " + err);
+                alert("Error starting camera: " + err);
                 stopScanner();
             });
         }
@@ -509,10 +643,13 @@
                     html5QrcodeScanner.clear();
                     html5QrcodeScanner = null;
                     document.getElementById('reader').style.display = 'none';
+                    document.getElementById('cameraSelectContainer').style.display = 'none';
                     document.getElementById('scanBtn').innerHTML = '<i class="ri-camera-line"></i> Scan';
                 });
             }
         }
+
+        // ---------- KV Assignment Logic ----------
 
         async function assignToKV() {
             const workerUrl = localStorage.getItem('workerUrl');
