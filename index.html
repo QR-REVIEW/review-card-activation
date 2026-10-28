@@ -538,27 +538,29 @@
             const regex = /!1s(0x[a-f0-9]+):(0x[a-f0-9]+)/i;
             
             try {
-                // If it's already a long URL with the hex values, convert directly
+                // 1. If it's already a long URL with the hex values, convert directly
                 const directMatch = url.match(regex);
                 if (directMatch) {
                     const placeId = computePlaceId(directMatch[1], directMatch[2]);
                     return { success: true, link: `https://search.google.com/local/writereview?placeid=${placeId}` };
                 }
 
-                // If it's a short URL, resolve it via API first
+                // 2. If it's a short URL, resolve it via your own Cloudflare Worker
                 if (url.match(/^https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps)\//i)) {
                     
-                    // Route through a CORS proxy to prevent "Failed to fetch" errors
-                    const targetApi = "https://productmate.com/api/resolve-url";
-                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetApi)}`;
+                    // Get the worker URL from settings
+                    const workerUrl = localStorage.getItem('workerUrl');
+                    if (!workerUrl) {
+                        return { success: false, error: "Admin Worker URL not configured in settings." };
+                    }
 
-                    const response = await fetch(proxyUrl, {
+                    // Format the endpoint correctly (remove trailing slash if present)
+                    const baseUrl = workerUrl.endsWith('/') ? workerUrl.slice(0, -1) : workerUrl;
+                    const resolveApi = `${baseUrl}/resolve`;
+
+                    const response = await fetch(resolveApi, {
                         method: "POST",
-                        headers: { 
-                            "Content-Type": "application/json",
-                            // Some APIs expect this header when using proxies
-                            "Accept": "application/json"
-                        },
+                        headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ url: url })
                     });
                     
@@ -573,20 +575,17 @@
                                 return { success: false, error: "No target hex values found in resolved URL" };
                             }
                         } else {
-                            return { success: false, error: "API did not return a resolved URL" };
+                            return { success: false, error: "Worker did not return a resolved URL" };
                         }
                     } else {
-                        return { success: false, error: `API request rejected (${response.status})` };
+                        return { success: false, error: `Worker request failed (${response.status})` };
                     }
                 }
                 
                 return { success: false, error: "URL does not match expected short link format" };
             } catch (error) {
                 console.error("Error processing maps link:", error);
-                return { success: false, error: error.message === "Failed to fetch" 
-                    ? "CORS/Network error. Check proxy." 
-                    : error.message 
-                };
+                return { success: false, error: error.message || "Network error" };
             }
         }
 
