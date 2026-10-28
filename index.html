@@ -168,6 +168,14 @@
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
+        
+        /* Auto-generating styling */
+        .form-group textarea:disabled {
+            background-color: #f3f4f6;
+            color: var(--primary);
+            font-weight: 500;
+            cursor: wait;
+        }
 
         .input-with-action {
             display: flex;
@@ -396,7 +404,7 @@
                 <div class="form-group">
                     <label for="valueInput">Destination Link (Maps Review)</label>
                     <div class="relative-box">
-                        <textarea id="valueInput" rows="4" placeholder="Paste the extracted Maps review link here"></textarea>
+                        <textarea id="valueInput" rows="4" placeholder="Paste a Google Maps link here. It will auto-convert to a review link!"></textarea>
                         <button class="paste-btn" onclick="pasteValue()" type="button" title="Paste from Clipboard">
                             <i class="ri-clipboard-line"></i> Paste
                         </button>
@@ -453,6 +461,9 @@
 
             if (workerUrl) document.getElementById('workerUrl').value = workerUrl;
             if (adminPassword) document.getElementById('adminPassword').value = adminPassword;
+            
+            // Attach URL parsing listener
+            setupAutoUrlParser();
         });
 
         // Modal Functions
@@ -489,6 +500,105 @@
             }, 1000);
         }
 
+        // ---------- Auto Maps Link Parser Logic ----------
+        
+        function getLittleEndianBytes(e) {
+            const t = [];
+            let n = BigInt(e);
+            for (let r = 0; r < 8; r++) {
+                t.push(Number(n & 0xffn));
+                n >>= 8n;
+            }
+            return t;
+        }
+
+        function computePlaceId(hex1Str, hex2Str) {
+            const hex1 = BigInt(hex1Str);
+            const hex2 = BigInt(hex2Str);
+            
+            const innerArray = [9, ...getLittleEndianBytes(hex1), 17, ...getLittleEndianBytes(hex2)];
+            const fullArray = [10, innerArray.length, ...innerArray];
+            
+            const uint8 = new Uint8Array(fullArray);
+            let b64 = btoa(String.fromCharCode(...uint8));
+            
+            return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+        }
+
+        async function processGoogleMapsLink(url) {
+            const regex = /!1s(0x[a-f0-9]+):(0x[a-f0-9]+)/i;
+            
+            // If it's already a long URL with the hex values, convert directly
+            const directMatch = url.match(regex);
+            if (directMatch) {
+                const placeId = computePlaceId(directMatch[1], directMatch[2]);
+                return `https://search.google.com/local/writereview?placeid=${placeId}`;
+            }
+
+            // If it's a short URL, resolve it via API first
+            if (url.match(/^https:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps)\//i)) {
+                try {
+                    const response = await fetch("https://productmate.com/api/resolve-url", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ url: url })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.resolved_url) {
+                            const match = data.resolved_url.match(regex);
+                            if (match) {
+                                const placeId = computePlaceId(match[1], match[2]);
+                                return `https://search.google.com/local/writereview?placeid=${placeId}`;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error resolving URL via API", error);
+                }
+            }
+            
+            // Return original if no conversions were made
+            return url;
+        }
+
+        function setupAutoUrlParser() {
+            const valueInput = document.getElementById('valueInput');
+            
+            valueInput.addEventListener('input', async (e) => {
+                const text = e.target.value.trim();
+                
+                // Only trigger if it looks like a google maps link
+                if (text.startsWith("https://") && text.includes("goo")) {
+                    // Save state
+                    const originalValue = text;
+                    e.target.disabled = true;
+                    e.target.value = "Auto-generating review link... Please wait.";
+                    
+                    const newLink = await processGoogleMapsLink(originalValue);
+                    
+                    // Update state
+                    e.target.value = newLink;
+                    e.target.disabled = false;
+                }
+            });
+        }
+
+        async function pasteValue() {
+            try {
+                const text = await navigator.clipboard.readText();
+                const valueInput = document.getElementById('valueInput');
+                valueInput.value = text;
+                
+                // Manually trigger the input event to process the pasted link
+                valueInput.dispatchEvent(new Event('input'));
+            } catch (err) {
+                console.error('Failed to read clipboard contents: ', err);
+                alert('Could not paste. Please ensure clipboard permissions are granted.');
+            }
+        }
+
         // ---------- NFC Scanner Logic ----------
 
         async function readNFC() {
@@ -503,7 +613,6 @@
                     const ndef = new NDEFReader();
                     await ndef.scan();
                     
-                    // Setup UI to indicate it's scanning
                     nfcBtn.innerHTML = '<i class="ri-rss-line"></i> Tap Tag';
                     nfcBtn.classList.remove('btn-secondary');
                     nfcBtn.classList.add('btn-warning');
@@ -578,7 +687,6 @@
             const cameraSelectContainer = document.getElementById('cameraSelectContainer');
             const cameraSelect = document.getElementById('cameraSelect');
 
-            // Request Camera Permissions & get list of cameras
             Html5Qrcode.getCameras().then(devices => {
                 if (devices && devices.length) {
                     cameraSelectContainer.style.display = 'block';
@@ -591,7 +699,6 @@
                         cameraSelect.appendChild(option);
                     });
 
-                    // Start with back camera if available, otherwise first
                     if (!currentCameraId) {
                         currentCameraId = devices[0].id;
                     }
@@ -711,16 +818,6 @@
                 btn.innerHTML = originalText;
             } finally {
                 btn.disabled = false;
-            }
-        }
-
-        async function pasteValue() {
-            try {
-                const text = await navigator.clipboard.readText();
-                document.getElementById('valueInput').value = text;
-            } catch (err) {
-                console.error('Failed to read clipboard contents: ', err);
-                alert('Could not paste. Please ensure clipboard permissions are granted.');
             }
         }
     </script>
